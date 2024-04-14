@@ -21,6 +21,104 @@ Distances = [
     [17, 15, 20, 17, 4,  0,  17, 7,  0 ]
 ]
 
+# Im a Player
+class Player:
+    def __init__(self, Hand, player_num, strategy):
+        self.State = [[[]]]
+        self.C_People = []
+        self.C_Weapons = []
+        self.C_Rooms = []
+        self.Hand = Hand
+        self.player_num = player_num
+        self.strategy = strategy
+        for i in range(len(People)):
+            self.State[i] = [Hand.count(People[i]),[]]
+        for i in range(len(Weapons)):
+            self.State[i + len(People)] = [Hand.count(Weapons[i]),[]]
+        for i in range(len(Rooms)):
+            self.State[i + len(People) + len(Weapons)] = [Hand.count(Rooms[i]), []]
+        # Build Opponent Hand probabilities
+        for i in range(len(People)):
+            self.State[i] = [1/(len(People)-self.len_known_people()),[]]
+        for i in range(len(Weapons)):
+            self.State[i + len(People)] = [1/(len(Weapons)-self.len_known_weapons()),[]]
+        for i in range(len(Rooms)):
+            self.State[i + len(People) + len(Weapons)] = [1/(len(Rooms)-self.len_known_rooms()), []]
+
+    def len_known_people(self):
+        #TODO: not this
+        return 1
+    def len_known_weapons(self):
+        #TODO: not this
+        return 1
+    def len_known_rooms(self):
+        #TODO: not this
+        return 1
+    def make_guess(self):
+        # TODO: Where more linprogging happens
+        person = weapon = room = 1
+        if (not SIMULATED and self.player_num == PLAYER):
+            input() #TODO: Player input
+            return
+        else:
+            return person, weapon, room
+    def process_guess(self, guesser, answerer, person, weapon, room):
+        person_idx = People.index(person)
+        weapon_idx = Weapons.index(weapon) + len(People)
+        room_idx = Rooms.index(room) + len(People) + len(Weapons)
+        # Zero out entries of players who dont have the cards
+        for i in range(1,(answerer-guesser-1)%NUM_PLAYERS):
+            player = (i + guesser) % NUM_PLAYERS
+            self.State[player][person_idx] = [0,[0]]
+            self.State[player][weapon_idx] = [0,[0]]
+            self.State[player][room_idx] = [0,[0]]
+            for j in range(len(Cards)):
+                for tup_list in self.State[player][j][1]:
+                    if self.State[player][j][0] == 0 or len(tup_list) == 0: continue
+                    if person_idx in tup_list: tup_list.pop(person_idx)
+                    if weapon_idx in tup_list: tup_list.pop(weapon_idx)
+                    if room_idx in tup_list: tup_list.pop(room_idx)
+                    if (len(tup_list) == 0): self.State[player][j] = [0,[0]]
+        # Update answerer cards
+        # TODO: Process Coefficient Matricies
+        #TODO: This (specifically the '1' part)
+        if answerer == self.player_num - 1: return
+        self.State[answerer][person_idx] = [1, self.State[answerer][person_idx][1] + [weapon_idx, room_idx]] 
+        self.State[answerer][weapon_idx] = [1, self.State[answerer][weapon_idx][1] + [person_idx, room_idx]]
+        self.State[answerer][room_idx] = [1, self.State[answerer][room_idx][1] + [weapon_idx, person_idx]]
+        # TODO: some linear algebra-ey conditional probablity calculation
+        return
+
+    def accuse(self):
+        # assert(its right)
+        return 0
+
+    def show_card(self, person, weapon, room):
+        MatchingCards = []
+        if (self.Hand.count(room) > 0):
+            MatchingCards.append(room)
+        if (self.Hand.count(weapon) > 0):
+            MatchingCards.append(weapon)
+        if (self.Hand.count(person) > 0):
+            MatchingCards.append(person)
+        
+        if (len(MatchingCards) == 0):
+            response = 'None'
+        elif (len(MatchingCards) == 1):
+            response = MatchingCards[0]
+        else:
+            #TODO: Possibly more linprog
+            if (self.strategy == 'random'):
+                response = MatchingCards[random.randrange(len(MatchingCards))]
+            elif (self.strategy == 'simplex'):
+                response = MatchingCards[random.randrange(len(MatchingCards))]
+            else:
+                response = MatchingCards[random.randrange(len(MatchingCards))]
+        return response
+
+    def receive_guess(self, card):
+    #TODO: Process the received guess.
+
 # Use the following constants to affect simulator behavior
 SIMULATED = True # Set to True to simulate a game
 global NUM_PLAYERS 
@@ -52,6 +150,7 @@ def user_round():
         return room, weapon, person, player
     except ValueError:
         print('Improperly Formatted Input.')
+        exit(1)
 
 # Run Simulated Round
 # TODO: Implement Logic and stuff
@@ -174,4 +273,31 @@ def createHands():
 
 createHands()
 print(Hands)
-simulated_round(2)
+Players = []
+for i in range(NUM_PLAYERS):
+    Players.append(Player(Hands[i], i + 1, PLAYER_STRATEGIES[i]))
+# RUN THE SIMULATORINATOR
+first = True
+player = int(DEALER) + 1
+while(True):
+    if (SIMULATED):
+        player = (int(player) + 1) % NUM_PLAYERS
+        # Player makes a guess
+        person, weapon, room = Players[player].make_guess()
+        # Players answer the guess
+        card = None
+        for i in range(1, NUM_PLAYERS):
+            card = Players[player + i].show_card(person, weapon, room)
+            if card != None: break
+        Players[player].receive_guess(card)
+        # Players process the guess
+        for i in range(NUM_PLAYERS):
+            Players[i].process_guess(person, weapon, room)
+        # Player makes an accusation if able
+        if Players[player].accuse(): break
+    else:
+        recommend = input('Recommend a Guess?')
+        if recommend: print(Players[PLAYER].make_guess())
+        person, weapon, room, player = user_round()
+
+print("Player", player, "won the game!")
