@@ -1,3 +1,14 @@
+####################################################################################################
+#                                                                                                  #
+# MATH 214 FINAL PROJECT | UNIVERSITY OF MICHIGAN - ANN ARBOR                                      #
+# AUTHORS: howarch | joshdoc | mcprisk | timqwang | yangco                                         #
+#                                                                                                  #
+# SUMMARY: This project uses linear programming methods to suggest the next most optimal guess     #
+#          for a player in the game of CLUE.  It has support for fully-simulated games as well as  #
+#          physical games (which depend upon user input for each round).                           #
+#                                                                                                  #
+####################################################################################################
+
 import random
 import math
 
@@ -119,7 +130,6 @@ class Player:
 #                                                                                                  #
 # SUGGEST THE NEXT BEST GUESS                                                                      #
 #                                                                                                  #
-
     def make_guess(self):
         # TODO: Where more linprogging happens
         person = People[0]
@@ -154,18 +164,18 @@ class Player:
                     if (len(tup_list) == 0): self.State[player][j] = [0,[0]]
         # Update answerer cards
         # TODO: Process Coefficient Matricies
-        # TODO: This (specifically the '1' part)
+        # TODO: This (specifically the '.5' part)
+        # TODO: Correctly update the probabilities based on whether the other cards are known.
         if answerer == self.player_num - 1: return
-        self.State[answerer][person_idx] = [1, self.State[answerer][person_idx][1] + [weapon_idx, room_idx]] 
-        self.State[answerer][weapon_idx] = [1, self.State[answerer][weapon_idx][1] + [person_idx, room_idx]]
-        self.State[answerer][room_idx] = [1, self.State[answerer][room_idx][1] + [weapon_idx, person_idx]]
+        self.State[answerer][person_idx] = [.5, self.State[answerer][person_idx][1] + [weapon_idx, room_idx]] 
+        self.State[answerer][weapon_idx] = [.5, self.State[answerer][weapon_idx][1] + [person_idx, room_idx]]
+        self.State[answerer][room_idx] = [.5, self.State[answerer][room_idx][1] + [weapon_idx, person_idx]]
         # TODO: some linear algebra-ey conditional probablity calculation
         return
 
 #                                                                                                  #
 # MAKE AN ACCUSATION IF ABLE                                                                       #
 #                                                                                                  #
-
     def accuse(self):
         person = weapon = room = None
         if (self.len_known_people() == len(People) - 1 and
@@ -194,7 +204,6 @@ class Player:
 #                                                                                                  #
 # DETERMINE WHICH CARD (IF ANY) TO SHOW                                                            #
 #                                                                                                  #
-
     def show_card(self, person, weapon, room):
         # Determine which cards this player have that match the guess
         MatchingCards = []
@@ -224,8 +233,10 @@ class Player:
 # RECEIVE A CARD AFTER MAKING A GUESS                                                              #
 #                                                                                                  #
 
-    def receive_guess(self, card):
-    #TODO: Process the received guess.
+    def receive_guess(self, player, card):
+        card_idx = Cards.index(card)
+        self.State[card_idx][player] = [1,[]]
+        return
 
 ####################################################################################################
 ####################################################################################################
@@ -268,6 +279,7 @@ def user_round():
 
 def createHands():
     random.seed()
+    global Answer
 
     if (SIMULATED):
         tempRooms = Rooms;
@@ -291,8 +303,7 @@ def createHands():
         # Deal the cards to the players and opponent hands
         for i in range(0, NUM_PLAYERS):
             Hands.append([])
-            extraCards = len(remainingCards) % (NUM_PLAYERS - i)
-            hand_len = math.floor(len(remainingCards)/(NUM_PLAYERS-i))
+            hand_len = math.floor(len(remainingCards)/(NUM_PLAYERS-i)) + ExtraCards[i]
             # Deal Cards
             for j in range(0, hand_len):
                 Hands[i].append(remainingCards.pop(random.randrange(len(remainingCards))))
@@ -335,32 +346,42 @@ def createHands():
 ####################################################################################################
 
 createHands()
-print(Hands)
 Players = []
+
 for i in range(NUM_PLAYERS):
     Players.append(Player(Hands[i], i + 1, PLAYER_STRATEGIES[i]))
 
-player = int(DEALER) + 1
+player = DEALER
 
 while(True):
     if (SIMULATED):
+        # Get next player
         player = (int(player) + 1) % NUM_PLAYERS
+
         # Player makes a guess
         person, weapon, room = Players[player].make_guess()
+
         # Players answer the guess
         card = None
         for i in range(1, NUM_PLAYERS):
             card = Players[player + i].show_card(person, weapon, room)
             if card != None: break
-        Players[player].receive_guess(card)
+
         # Players process the guess
         for i in range(NUM_PLAYERS):
             Players[i].process_guess(person, weapon, room)
+
+        # Guesser processes the received card
+        Players[player].receive_guess(card)
+
         # Player makes an accusation if able
         if Players[player].accuse(): break
     else:
+        # Get user input for the round and optionally suggest a guess
         recommend = input('Recommend a Guess? (y/n): ')
         if recommend == 'y': print(Players[PLAYER].make_guess())
         person, weapon, room, player = user_round()
 
+# Game complete
 print("Player", player, "won the game!")
+
