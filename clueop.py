@@ -1,6 +1,12 @@
 import random
 import math
 
+####################################################################################################
+####################################################################################################
+# GLOBAL VARIABLES                                                                                 #
+####################################################################################################
+####################################################################################################
+
 Rooms = ['Ball', 'Billiard', 'Conservatory', 'Dining', 'Hall', 'Kitchen', 'Lounge', 'Library', 'Study']
 Weapons = ['Knife', 'Pistol', 'Rope', 'Candlestick', 'Wrench', 'Lead_Pipe']
 People = ['White', 'Green', 'Scarlet', 'Mustard', 'Peacock', 'Plum']
@@ -21,47 +27,114 @@ Distances = [
     [17, 15, 20, 17, 4,  0,  17, 7,  0 ]
 ]
 
-# Im a Player
+####################################################################################################
+####################################################################################################
+# SIMULATION PARAMETERS                                                                            #
+####################################################################################################
+####################################################################################################
+
+# Use the following constants to affect simulator behavior
+SIMULATED = True # Set to True to simulate a game
+global NUM_PLAYERS 
+NUM_PLAYERS = 4 # Number of players in the game
+PLAYER = 1  # Index of the player in the list of players (0-indexed)
+DEALER = 1  # Index of the dealer in the list of players (0-indexed)
+PLAYER_STRATEGIES = ['random', 'random', 'random', 'random'] # Strategies for each player
+assert(len(PLAYER_STRATEGIES) == NUM_PLAYERS), 'Number of strategies does not match number of players'
+assert(PLAYER <= NUM_PLAYERS and DEALER <= NUM_PLAYERS), 'Player or Dealer index out of bounds'
+
+
+####################################################################################################
+####################################################################################################
+# PLAYER CLASS                                                                                     #
+####################################################################################################
+####################################################################################################
+
 class Player:
+#                                                                                                  #
+# PLAYER CONSTRUCTOR                                                                               #
+#                                                                                                  #
     def __init__(self, Hand, player_num, strategy):
+        # STATE ORGANIZATION:
+        # First Dimension: Card
+        # Second Dimension: Players
+        # Third Dimension: List of Tuples w/ 
+        #   1. Probabilty of Player having card (only a 1 if it is guaranteed that they have it)
+        #   2. List of other cards that they could have shown on that hand
         self.State = [[[]]]
+        # Coefficient Matricies for Linear Programming
         self.C_People = []
         self.C_Weapons = []
         self.C_Rooms = []
+        # Player Hand (List of Cards)
         self.Hand = Hand
+        # Configurable Player Characteristics
         self.player_num = player_num
         self.strategy = strategy
+        # Create Player Hand (from input argument)
         for i in range(len(People)):
-            self.State[i] = [Hand.count(People[i]),[]]
+            self.State[i][player_num] = [Hand.count(People[i]),[]]
         for i in range(len(Weapons)):
-            self.State[i + len(People)] = [Hand.count(Weapons[i]),[]]
+            self.State[i + len(People)][player_num] = [Hand.count(Weapons[i]),[]]
         for i in range(len(Rooms)):
-            self.State[i + len(People) + len(Weapons)] = [Hand.count(Rooms[i]), []]
-        # Build Opponent Hand probabilities
+            self.State[i + len(People) + len(Weapons)][player_num] = [Hand.count(Rooms[i]), []]
+        # Build Opponent Hand probabilities (from current state)
         for i in range(len(People)):
-            self.State[i] = [1/(len(People)-self.len_known_people()),[]]
+            for j in range(1, NUM_PLAYERS):
+                self.State[i][j] = [1/(len(People)-self.len_known_people()),[]]
         for i in range(len(Weapons)):
-            self.State[i + len(People)] = [1/(len(Weapons)-self.len_known_weapons()),[]]
+            for j in range(1, NUM_PLAYERS):
+                self.State[i + len(People)][j] = [1/(len(Weapons)-self.len_known_weapons()),[]]
         for i in range(len(Rooms)):
-            self.State[i + len(People) + len(Weapons)] = [1/(len(Rooms)-self.len_known_rooms()), []]
+            for j in range(1, NUM_PLAYERS):
+                self.State[i + len(People) + len(Weapons)][j] = [1/(len(Rooms)-self.len_known_rooms()), []]
 
+#                                                                                                  #
+# CLASS HELPER FUNCTIONS                                                                           #
+#                                                                                                  #
+
+# Determine the number of known cards for each category
+# A card is considered known if there is a player with a 1 in its probability field
     def len_known_people(self):
-        #TODO: not this
-        return 1
+        num_known = 0
+        for i in range(len(People)):
+            for j in range(NUM_PLAYERS):
+                if self.State[i][j][0] == 1: num_known += 1
+        return num_known
+
     def len_known_weapons(self):
-        #TODO: not this
-        return 1
+        num_known = 0
+        for i in range(len(People), len(People) + len(Weapons)):
+            for j in range(NUM_PLAYERS):
+                if self.State[i][j][0] == 1: num_known += 1
+        return num_known
+
     def len_known_rooms(self):
-        #TODO: not this
-        return 1
+        num_known = 0
+        for i in range(len(People) + len(Weapons), len(People) + len(Weapons) + len(Rooms)):
+            for j in range(NUM_PLAYERS):
+                if self.State[i][j][0] == 1: num_known += 1
+        return num_known
+
+#                                                                                                  #
+# SUGGEST THE NEXT BEST GUESS                                                                      #
+#                                                                                                  #
+
     def make_guess(self):
         # TODO: Where more linprogging happens
-        person = weapon = room = 1
+        person = People[0]
+        weapon = Weapons[0]
+        room = Rooms[0]
+        # If this is the player, suggest a guess and take in player input
         if (not SIMULATED and self.player_num == PLAYER):
-            input() #TODO: Player input
+            print('Reccomended Guess: ' + person + ', ' + weapon + ', ' + room)
             return
         else:
             return person, weapon, room
+
+#                                                                                                  #
+# PROCESS A GUESS                                                                                  #
+#                                                                                                  #
     def process_guess(self, guesser, answerer, person, weapon, room):
         person_idx = People.index(person)
         weapon_idx = Weapons.index(weapon) + len(People)
@@ -81,7 +154,7 @@ class Player:
                     if (len(tup_list) == 0): self.State[player][j] = [0,[0]]
         # Update answerer cards
         # TODO: Process Coefficient Matricies
-        #TODO: This (specifically the '1' part)
+        # TODO: This (specifically the '1' part)
         if answerer == self.player_num - 1: return
         self.State[answerer][person_idx] = [1, self.State[answerer][person_idx][1] + [weapon_idx, room_idx]] 
         self.State[answerer][weapon_idx] = [1, self.State[answerer][weapon_idx][1] + [person_idx, room_idx]]
@@ -89,11 +162,41 @@ class Player:
         # TODO: some linear algebra-ey conditional probablity calculation
         return
 
+#                                                                                                  #
+# MAKE AN ACCUSATION IF ABLE                                                                       #
+#                                                                                                  #
+
     def accuse(self):
-        # assert(its right)
-        return 0
+        person = weapon = room = None
+        if (self.len_known_people() == len(People) - 1 and
+                self.len_known_weapons() == len(Weapons) - 1 and
+                self.len_known_rooms() == len(Rooms) - 1):
+            # Make the accusation based on the known cards
+            # If no players have the card, than the card must be in the answer set
+            for i in range(len(People)):
+                for j in range(NUM_PLAYERS):
+                    if self.State[i][j][0] == 1: break 
+                    if j == NUM_PLAYERS - 1: person = People[i]
+            for i in range(len(People), len(People) + len(Weapons)):
+                for j in range(NUM_PLAYERS):
+                    if self.State[i][j][0] == 1: break 
+                    if j == NUM_PLAYERS - 1: weapon = Weapons[i]
+            for i in range(len(People) + len(Weapons), len(People) + len(Weapons) + len(Rooms)):
+                for j in range(NUM_PLAYERS):
+                    if self.State[i][j][0] == 1: break 
+                    if j == NUM_PLAYERS - 1: room = Rooms[i]
+            assert(person == Answer[0] and weapon == Answer[1] and room == Answer[2]), 'Accusation Incorrect!'
+            print('Accusation: ' + str(person) + ', ' + str(weapon) + ', ' + str(room))
+            return True
+        else:
+            return False
+
+#                                                                                                  #
+# DETERMINE WHICH CARD (IF ANY) TO SHOW                                                            #
+#                                                                                                  #
 
     def show_card(self, person, weapon, room):
+        # Determine which cards this player have that match the guess
         MatchingCards = []
         if (self.Hand.count(room) > 0):
             MatchingCards.append(room)
@@ -102,12 +205,13 @@ class Player:
         if (self.Hand.count(person) > 0):
             MatchingCards.append(person)
         
+        # Return the card to show (logic depends on number of cards / strategy)
         if (len(MatchingCards) == 0):
             response = 'None'
         elif (len(MatchingCards) == 1):
             response = MatchingCards[0]
         else:
-            #TODO: Possibly more linprog
+            #TODO: Possibly more linprog for finding the best card to show
             if (self.strategy == 'random'):
                 response = MatchingCards[random.randrange(len(MatchingCards))]
             elif (self.strategy == 'simplex'):
@@ -116,24 +220,30 @@ class Player:
                 response = MatchingCards[random.randrange(len(MatchingCards))]
         return response
 
+#                                                                                                  #
+# RECEIVE A CARD AFTER MAKING A GUESS                                                              #
+#                                                                                                  #
+
     def receive_guess(self, card):
     #TODO: Process the received guess.
 
-# Use the following constants to affect simulator behavior
-SIMULATED = True # Set to True to simulate a game
-global NUM_PLAYERS 
-NUM_PLAYERS = 4 # Number of players in the game
-PLAYER = 1  # Index of the player in the list of players (0-indexed)
-DEALER = 1  # Index of the dealer in the list of players (0-indexed)
-PLAYER_STRATEGIES = ['random', 'random', 'random', 'random'] # Strategies for each player
-assert(len(PLAYER_STRATEGIES) == NUM_PLAYERS), 'Number of strategies does not match number of players'
-assert(PLAYER <= NUM_PLAYERS and DEALER <= NUM_PLAYERS), 'Player or Dealer index out of bounds'
+####################################################################################################
+####################################################################################################
+# HELPER FUNCTIONS                                                                                 #
+####################################################################################################
+####################################################################################################
 
-# Calculate Distance between two rooms
+#                                                                                                  #
+# CALCULATE DISTANCE BETWEEN ROOMS                                                                 #
+#                                                                                                  #
+
 def distance_to_room(room1, room2):
     return Distances[Rooms.index(room1)][Rooms.index(room2)]
 
-# Enable User Round Input
+#                                                                                                  #
+# USER ROUND INPUT (NON-SIMULATED CASE)                                                            #
+#                                                                                                  #
+
 def user_round():
     try:
         print('Enter the room, weapon, and suspect of the suggestion.' +
@@ -152,63 +262,10 @@ def user_round():
         print('Improperly Formatted Input.')
         exit(1)
 
-# Run Simulated Round
-# TODO: Implement Logic and stuff
-def simulated_round(player):
-    # Get the suggestion from the current player
-    if (PLAYER_STRATEGIES[player] == 'random'):
-        room, weapon, person = random_guess()
-    elif (PLAYER_STRATEGIES[player] == 'simplex'):
-        room, weapon, person = simplex_guess(player)
-    else:
-        room, weapon, person = random_guess()
-    print('Player ' + str(player) + ' suggested ' + room + ', ' + weapon + ', ' + person)
-    # Process the Suggestion
-    for i in range(1, NUM_PLAYERS):
-        responder = (player + i) % NUM_PLAYERS
-        response = show_card(responder, room, weapon, person)
-        # Check if the player showed a card
-        if (response != 'None'):
-            print('Player ' + str(responder) + ' responded ' + response)
-            break
-    # Process the response
-    # TODO: Implement Logic
+#                                                                                                  #
+# CREATE PLAYER HANDS                                                                              #
+#                                                                                                  #
 
-# Determine which card to show
-def show_card(player, room, weapon, person):
-    # Check if the player has any of the cards
-    MatchingCards = []
-    if (Hands[player].count(room) > 0):
-        MatchingCards.append(room)
-    if (Hands[player].count(weapon) > 0):
-        MatchingCards.append(weapon)
-    if (Hands[player].count(person) > 0):
-        MatchingCards.append(person)
-    
-    if (len(MatchingCards) == 0):
-        response = 'None'
-    elif (len(MatchingCards) == 1):
-        response = MatchingCards[0]
-    else:
-        if (PLAYER_STRATEGIES[player] == 'random'):
-            response = MatchingCards[random.randrange(len(MatchingCards))]
-        elif (PLAYER_STRATEGIES[player] == 'simplex'):
-            response = MatchingCards[random.randrange(len(MatchingCards))]
-        else:
-            response = MatchingCards[random.randrange(len(MatchingCards))]
-
-    return response
-
-def simplex_guess(player):
-    return random_guess()
-
-def random_guess():
-    room = Rooms[random.randrange(len(Rooms))]
-    weapon = Weapons[random.randrange(len(Weapons))]
-    person = People[random.randrange(len(People))]
-    return room, weapon, person
-
-# Create Player Hand(s)
 def createHands():
     random.seed()
 
@@ -271,14 +328,20 @@ def createHands():
                 print('Improperly Formatted Input.')
 
 
+####################################################################################################
+####################################################################################################
+# RUN THE SIMULATOR                                                                                #
+####################################################################################################
+####################################################################################################
+
 createHands()
 print(Hands)
 Players = []
 for i in range(NUM_PLAYERS):
     Players.append(Player(Hands[i], i + 1, PLAYER_STRATEGIES[i]))
-# RUN THE SIMULATORINATOR
-first = True
+
 player = int(DEALER) + 1
+
 while(True):
     if (SIMULATED):
         player = (int(player) + 1) % NUM_PLAYERS
@@ -296,8 +359,8 @@ while(True):
         # Player makes an accusation if able
         if Players[player].accuse(): break
     else:
-        recommend = input('Recommend a Guess?')
-        if recommend: print(Players[PLAYER].make_guess())
+        recommend = input('Recommend a Guess? (y/n): ')
+        if recommend == 'y': print(Players[PLAYER].make_guess())
         person, weapon, room, player = user_round()
 
 print("Player", player, "won the game!")
