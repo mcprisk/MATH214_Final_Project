@@ -12,6 +12,8 @@
 import random
 import math
 import copy
+from scipy.optimize import linprog
+import numpy as np
 
 ####################################################################################################
 ####################################################################################################
@@ -22,7 +24,7 @@ import copy
 People = ['White', 'Green', 'Scarlet', 'Mustard', 'Peacock', 'Plum']
 Weapons = ['Knife', 'Pistol', 'Rope', 'Candlestick', 'Wrench', 'Lead_Pipe']
 Rooms = ['Ball', 'Billiard', 'Conservatory', 'Dining', 'Hall', 'Kitchen', 'Lounge', 'Library', 'Study']
-Cards = People + Weapons + Rooms;
+Cards = People + Weapons + Rooms
 Hands = []
 Answer = []
 
@@ -38,6 +40,15 @@ Distances = [
     [12, 4,  15, 14, 7,  23, 14, 0,  7 ],
     [17, 15, 20, 17, 4,  0,  17, 7,  0 ]
 ]
+
+# define the inequality constraints
+A_ub = [
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],  # neg because we need to convert >= to <= for linprog
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0,],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1]
+]
+
+b_ub = [-1, -1, -1]  # negative for the same reason as A_ub
 
 ####################################################################################################
 ####################################################################################################
@@ -79,12 +90,35 @@ class Player:
             for j in range(NUM_PLAYERS):
                 self.State[i].append([])
                 self.State[i][j] = [0,[]]
-        # Coefficient Matricies for Linear Programming
-        self.C_People = []
-        self.C_Weapons = []
-        self.C_Rooms = []
+
         # Player Hand (List of Cards)
         self.Hand = Hand
+
+        # Coefficient Matricies for Linear Programming
+        self.C_People = [0, 0, 0, 0, 0, 0]
+        self.C_Weapons = [0, 0, 0, 0, 0, 0]
+        self.C_Rooms = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        # set cards in hand to correspond with coeff matrix of 100
+        for card in self.Hand:
+            if card in People:
+                index = People.index(card)
+                self.C_People[index] = 100
+            elif card in Weapons:
+                index = Weapons.index(card)
+                self.C_Weapons[index] = 100
+            elif card in Rooms:
+                index = Rooms.index(card)
+                self.C_Rooms[index] = 100
+
+        # for cards that arent in hand, adjust their probability accordingly
+        for coefficients in (self.C_People, self.C_Weapons, self.C_Rooms):
+            non_set_indices = [i for i in range(len(coefficients)) if coefficients[i] != 100]
+            if non_set_indices:
+                update_value = 100 - (1 / len(non_set_indices)) * 100
+                for index in non_set_indices:
+                    coefficients[index] = update_value
+
         # Configurable Player Characteristics
         self.player_num = player_num
         self.strategy = strategy
@@ -146,9 +180,23 @@ class Player:
 #                                                                                                  #
     def make_guess(self):
         # TODO: Where more linprogging happens
-        person = People[0]
-        weapon = Weapons[0]
-        room = Rooms[0]
+
+        coefficients = self.C_People + self.C_Rooms + self.C_Weapons
+
+        result = linprog(c=coefficients, A_ub=A_ub, b_ub=b_ub, method='highs')
+
+        # extract person option
+        room_index = result.x[:len(Rooms)].argmax()
+        room = Rooms[room_index]
+
+        # extract weapon option
+        weapon_index = result.x[len(Rooms):len(Rooms) + len(Weapons)].argmax()
+        weapon = Weapons[weapon_index]
+    
+        # extract person option
+        person_index = result.x[len(Rooms) + len(Weapons):].argmax()
+        person = People[person_index]
+
         # If this is the player, suggest a guess and take in player input
         if (not SIMULATED and self.player_num == PLAYER):
             print('Reccomended Guess: ' + person + ', ' + weapon + ', ' + room)
@@ -332,6 +380,8 @@ def createHands():
             for j in range(0, hand_len):
                 Hands[i].append(remainingCards.pop(random.randrange(len(remainingCards))))
 
+        
+
     else:
         try:
             num_players = int(input('Number of Players: '))
@@ -384,6 +434,9 @@ while(True):
 
         # Player makes a guess
         person, weapon, room = Players[player].make_guess()
+
+        if person == None:
+            continue
 
         # Players answer the guess
         card = None
