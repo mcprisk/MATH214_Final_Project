@@ -11,6 +11,7 @@
 
 import random
 import math
+import copy
 
 ####################################################################################################
 ####################################################################################################
@@ -18,10 +19,10 @@ import math
 ####################################################################################################
 ####################################################################################################
 
-Rooms = ['Ball', 'Billiard', 'Conservatory', 'Dining', 'Hall', 'Kitchen', 'Lounge', 'Library', 'Study']
-Weapons = ['Knife', 'Pistol', 'Rope', 'Candlestick', 'Wrench', 'Lead_Pipe']
 People = ['White', 'Green', 'Scarlet', 'Mustard', 'Peacock', 'Plum']
-Cards = Rooms + Weapons + People;
+Weapons = ['Knife', 'Pistol', 'Rope', 'Candlestick', 'Wrench', 'Lead_Pipe']
+Rooms = ['Ball', 'Billiard', 'Conservatory', 'Dining', 'Hall', 'Kitchen', 'Lounge', 'Library', 'Study']
+Cards = People + Weapons + Rooms;
 Hands = []
 Answer = []
 
@@ -72,7 +73,12 @@ class Player:
         # Third Dimension: List of Tuples w/ 
         #   1. Probabilty of Player having card (only a 1 if it is guaranteed that they have it)
         #   2. List of other cards that they could have shown on that hand
-        self.State = [[[]]]
+        self.State = []
+        for i in range(len(Cards)):
+            self.State.append([])
+            for j in range(NUM_PLAYERS):
+                self.State[i].append([])
+                self.State[i][j] = [0,[]]
         # Coefficient Matricies for Linear Programming
         self.C_People = []
         self.C_Weapons = []
@@ -82,6 +88,7 @@ class Player:
         # Configurable Player Characteristics
         self.player_num = player_num
         self.strategy = strategy
+        self.room_location = random.choice(Rooms)
         # Create Player Hand (from input argument)
         for i in range(len(People)):
             self.State[i][player_num] = [Hand.count(People[i]),[]]
@@ -89,16 +96,23 @@ class Player:
             self.State[i + len(People)][player_num] = [Hand.count(Weapons[i]),[]]
         for i in range(len(Rooms)):
             self.State[i + len(People) + len(Weapons)][player_num] = [Hand.count(Rooms[i]), []]
+
         # Build Opponent Hand probabilities (from current state)
         for i in range(len(People)):
-            for j in range(1, NUM_PLAYERS):
-                self.State[i][j] = [1/(len(People)-self.len_known_people()),[]]
-        for i in range(len(Weapons)):
-            for j in range(1, NUM_PLAYERS):
-                self.State[i + len(People)][j] = [1/(len(Weapons)-self.len_known_weapons()),[]]
-        for i in range(len(Rooms)):
-            for j in range(1, NUM_PLAYERS):
-                self.State[i + len(People) + len(Weapons)][j] = [1/(len(Rooms)-self.len_known_rooms()), []]
+            for j in range(NUM_PLAYERS):
+                if j == player_num: continue
+                if self.State[i][player_num][0] == 1: self.State[i][j] = [0,[]]
+                else: self.State[i][j] = [1/(len(People)-self.len_known_people()),[]]
+        for i in range(len(People), len(People) + len(Weapons)):
+            for j in range(NUM_PLAYERS):
+                if j == player_num: continue
+                if self.State[i][player_num][0] == 1: self.State[i][j] = [0,[]]
+                else: self.State[i][j] = [1/(len(Weapons)-self.len_known_weapons()),[]]
+        for i in range(len(People) + len(Weapons), len(People) + len(Weapons) + len(Rooms)):
+            for j in range(NUM_PLAYERS):
+                if j == player_num: continue
+                if self.State[i][player_num][0] == 1: self.State[i][j] = [0,[]]
+                else: self.State[i][j] = [1/(len(Rooms)-self.len_known_rooms()), []]
 
 #                                                                                                  #
 # CLASS HELPER FUNCTIONS                                                                           #
@@ -110,21 +124,21 @@ class Player:
         num_known = 0
         for i in range(len(People)):
             for j in range(NUM_PLAYERS):
-                if self.State[i][j][0] == 1: num_known += 1
+                if len(self.State[i][j]) and self.State[i][j][0] == 1: num_known += 1
         return num_known
 
     def len_known_weapons(self):
         num_known = 0
         for i in range(len(People), len(People) + len(Weapons)):
             for j in range(NUM_PLAYERS):
-                if self.State[i][j][0] == 1: num_known += 1
+                if len(self.State[i][j]) and self.State[i][j][0] == 1: num_known += 1
         return num_known
 
     def len_known_rooms(self):
         num_known = 0
         for i in range(len(People) + len(Weapons), len(People) + len(Weapons) + len(Rooms)):
             for j in range(NUM_PLAYERS):
-                if self.State[i][j][0] == 1: num_known += 1
+                if len(self.State[i][j]) and self.State[i][j][0] == 1: num_known += 1
         return num_known
 
 #                                                                                                  #
@@ -140,6 +154,7 @@ class Player:
             print('Reccomended Guess: ' + person + ', ' + weapon + ', ' + room)
             return
         else:
+            print('Guess: ' + person + ', ' + weapon + ', ' + room)
             return person, weapon, room
 
 #                                                                                                  #
@@ -152,9 +167,9 @@ class Player:
         # Zero out entries of players who dont have the cards
         for i in range(1,(answerer-guesser-1)%NUM_PLAYERS):
             player = (i + guesser) % NUM_PLAYERS
-            self.State[player][person_idx] = [0,[0]]
-            self.State[player][weapon_idx] = [0,[0]]
-            self.State[player][room_idx] = [0,[0]]
+            self.State[player][person_idx] = [0,[]]
+            self.State[player][weapon_idx] = [0,[]]
+            self.State[player][room_idx] = [0,[]]
             for j in range(len(Cards)):
                 for tup_list in self.State[player][j][1]:
                     if self.State[player][j][0] == 0 or len(tup_list) == 0: continue
@@ -167,9 +182,14 @@ class Player:
         # TODO: This (specifically the '.5' part)
         # TODO: Correctly update the probabilities based on whether the other cards are known.
         if answerer == self.player_num - 1: return
-        self.State[answerer][person_idx] = [.5, self.State[answerer][person_idx][1] + [weapon_idx, room_idx]] 
-        self.State[answerer][weapon_idx] = [.5, self.State[answerer][weapon_idx][1] + [person_idx, room_idx]]
-        self.State[answerer][room_idx] = [.5, self.State[answerer][room_idx][1] + [weapon_idx, person_idx]]
+        elif answerer == -1:
+            # TODO: Case where no one had the cards
+            print('hi')
+            return
+
+        self.State[person_idx][answerer][1].append([weapon_idx, room_idx]) 
+        self.State[weapon_idx][answerer][1].append([person_idx, room_idx])
+        self.State[room_idx][answerer][1].append([weapon_idx, person_idx])
         # TODO: some linear algebra-ey conditional probablity calculation
         return
 
@@ -216,7 +236,7 @@ class Player:
         
         # Return the card to show (logic depends on number of cards / strategy)
         if (len(MatchingCards) == 0):
-            response = 'None'
+            response = None
         elif (len(MatchingCards) == 1):
             response = MatchingCards[0]
         else:
@@ -227,15 +247,17 @@ class Player:
                 response = MatchingCards[random.randrange(len(MatchingCards))]
             else:
                 response = MatchingCards[random.randrange(len(MatchingCards))]
+
+        if response != None: print('Showing Card: ' + response)
         return response
 
 #                                                                                                  #
 # RECEIVE A CARD AFTER MAKING A GUESS                                                              #
 #                                                                                                  #
 
-    def receive_guess(self, player, card):
+    def receive_guess(self, card):
         card_idx = Cards.index(card)
-        self.State[card_idx][player] = [1,[]]
+        self.State[card_idx][self.player_num] = [1,[]]
         return
 
 ####################################################################################################
@@ -257,7 +279,7 @@ def distance_to_room(room1, room2):
 
 def user_round():
     try:
-        print('Enter the room, weapon, and suspect of the suggestion.' +
+        print('Enter the room, weapon, and suspect of the suggestion (or \'n\' if no suggestion is made).' +
             '1: Ballroom\t\t2: Billiard Room\t3: Conservatory\t\t4: Dining Room\n' +
             '5: Hall\t\t\t6: Kitchen\t\t7: Lounge\t\t8: Library\n' +
             '9: Study\t\t10: Knife\t\t11: Pistol\t\t12: Rope\n' +
@@ -265,10 +287,12 @@ def user_round():
             '17: Mr. Green\t\t18: Ms. Scarlet\t\t19: Col. Mustard\t20: Mrs. Peacock\n' +
             '21: Prof. Plum\nCards in Hand: ');
         room = input('Room: ')
+        if (room == 'n'): return None, None, None, None, None
         weapon = input('Weapon: ')
         person = input('Person: ')
-        player = input('Player that showed a card: ')
-        return room, weapon, person, player
+        receiver = input('Player that received a card: ')
+        shower = input('Player that showed a card: ')
+        return room, weapon, person, shower, receiver
     except ValueError:
         print('Improperly Formatted Input.')
         exit(1)
@@ -282,9 +306,9 @@ def createHands():
     global Answer
 
     if (SIMULATED):
-        tempRooms = Rooms;
-        tempWeapons = Weapons;
-        tempPeople = People;
+        tempRooms = copy.deepcopy(Rooms);
+        tempWeapons = copy.deepcopy(Weapons);
+        tempPeople = copy.deepcopy(People);
         Answer = (tempRooms.pop(random.randrange(len(tempRooms)))
             + tempWeapons.pop(random.randrange(len(tempWeapons))) 
             + tempPeople.pop(random.randrange(len(tempPeople))))
@@ -303,7 +327,7 @@ def createHands():
         # Deal the cards to the players and opponent hands
         for i in range(0, NUM_PLAYERS):
             Hands.append([])
-            hand_len = math.floor(len(remainingCards)/(NUM_PLAYERS-i)) + ExtraCards[i]
+            hand_len = math.floor((len(Cards) - 3)/NUM_PLAYERS) + ExtraCards[i]
             # Deal Cards
             for j in range(0, hand_len):
                 Hands[i].append(remainingCards.pop(random.randrange(len(remainingCards))))
@@ -349,7 +373,7 @@ createHands()
 Players = []
 
 for i in range(NUM_PLAYERS):
-    Players.append(Player(Hands[i], i + 1, PLAYER_STRATEGIES[i]))
+    Players.append(Player(Hands[i], i, PLAYER_STRATEGIES[i]))
 
 player = DEALER
 
@@ -363,16 +387,20 @@ while(True):
 
         # Players answer the guess
         card = None
+        answerer = -1
         for i in range(1, NUM_PLAYERS):
-            card = Players[player + i].show_card(person, weapon, room)
-            if card != None: break
+            card = Players[(player + i) % NUM_PLAYERS].show_card(person, weapon, room)
+            if card != None:
+                answerer = (player + i) % NUM_PLAYERS
+                break
 
         # Players process the guess
         for i in range(NUM_PLAYERS):
-            Players[i].process_guess(person, weapon, room)
+            print('Guesser: ' + str(player) + '\nAnswerer: ' + str(answerer))
+            Players[i].process_guess(player, answerer, person, weapon, room)
 
         # Guesser processes the received card
-        Players[player].receive_guess(card)
+        if card != None: Players[player].receive_guess(card)
 
         # Player makes an accusation if able
         if Players[player].accuse(): break
@@ -380,7 +408,8 @@ while(True):
         # Get user input for the round and optionally suggest a guess
         recommend = input('Recommend a Guess? (y/n): ')
         if recommend == 'y': print(Players[PLAYER].make_guess())
-        person, weapon, room, player = user_round()
+        person, weapon, room, shower, receiver = user_round()
+        Players[PLAYER].process_guess(person, weapon, room)
 
 # Game complete
 print("Player", player, "won the game!")
