@@ -95,9 +95,10 @@ class Player:
         self.Hand = Hand
 
         # Coefficient Matricies for Linear Programming
-        self.C_People = [0, 0, 0, 0, 0, 0]
+        self.C_Rooms =   [0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.C_Weapons = [0, 0, 0, 0, 0, 0]
-        self.C_Rooms = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.C_People =  [0, 0, 0, 0, 0, 0]
+
 
         # set cards in hand to correspond with coeff matrix of 100
         for card in self.Hand:
@@ -112,7 +113,7 @@ class Player:
                 self.C_Rooms[index] = 100
 
         # for cards that arent in hand, adjust their probability accordingly
-        for coefficients in (self.C_People, self.C_Weapons, self.C_Rooms):
+        for coefficients in (self.C_Rooms, self.C_Weapons, self.C_People):
             non_set_indices = [i for i in range(len(coefficients)) if coefficients[i] != 100]
             if non_set_indices:
                 update_value = 100 - (1 / len(non_set_indices)) * 100
@@ -181,11 +182,11 @@ class Player:
     def make_guess(self):
         # TODO: Where more linprogging happens
 
-        coefficients = self.C_People + self.C_Rooms + self.C_Weapons
+        coefficients = self.C_Rooms + self.C_Weapons + self.C_People
 
         result = linprog(c=coefficients, A_ub=A_ub, b_ub=b_ub, method='highs')
 
-        # extract person option
+        # extract room option
         room_index = result.x[:len(Rooms)].argmax()
         room = Rooms[room_index]
 
@@ -215,9 +216,9 @@ class Player:
         # Zero out entries of players who dont have the cards
         for i in range(1,(answerer-guesser-1)%NUM_PLAYERS):
             player = (i + guesser) % NUM_PLAYERS
-            self.State[player][person_idx] = [0,[]]
-            self.State[player][weapon_idx] = [0,[]]
-            self.State[player][room_idx] = [0,[]]
+            self.State[person_idx][player] = [0,[]]
+            self.State[weapon_idx][player] = [0,[]]
+            self.State[room_idx][player] = [0,[]]
             for j in range(len(Cards)):
                 for tup_list in self.State[player][j][1]:
                     if self.State[player][j][0] == 0 or len(tup_list) == 0: continue
@@ -225,8 +226,11 @@ class Player:
                     if weapon_idx in tup_list: tup_list.pop(weapon_idx)
                     if room_idx in tup_list: tup_list.pop(room_idx)
                     if (len(tup_list) == 0): self.State[player][j] = [0,[0]]
+
         # Update answerer cards
         # TODO: Process Coefficient Matricies
+
+
         # TODO: This (specifically the '.5' part)
         # TODO: Correctly update the probabilities based on whether the other cards are known.
         if answerer == self.player_num - 1: return
@@ -303,7 +307,32 @@ class Player:
 # RECEIVE A CARD AFTER MAKING A GUESS                                                              #
 #                                                                                                  #
 
-    def receive_guess(self, card):
+    def receive_guess(self, card):      
+        # update coeff matrices
+        if card in People:
+            index = People.index(card)
+            self.C_People[index] = 100
+            print("People: " + str(self.C_People))
+
+        elif card in Weapons:
+            index = Weapons.index(card)
+            self.C_Weapons[index] = 100
+            print("W " + str(self.C_Weapons))
+
+        elif card in Rooms:
+            index = Rooms.index(card)
+            self.C_Rooms[index] = 100
+            print("R " + str(self.C_Rooms))
+
+        # for cards that arent in hand, adjust their probability accordingly
+        for coefficients in (self.C_People, self.C_Weapons, self.C_Rooms):
+            non_set_indices = [i for i in range(len(coefficients)) if coefficients[i] != 100]
+            if non_set_indices:
+                update_value = 100 - (1 / len(non_set_indices)) * 100
+                for index in non_set_indices:
+                    coefficients[index] = update_value
+        
+        
         card_idx = Cards.index(card)
         self.State[card_idx][self.player_num] = [1,[]]
         return
@@ -431,6 +460,8 @@ while(True):
     if (SIMULATED):
         # Get next player
         player = (int(player) + 1) % NUM_PLAYERS
+
+        print ('\nTurn of Player ' + str(player)) 
 
         # Player makes a guess
         person, weapon, room = Players[player].make_guess()
