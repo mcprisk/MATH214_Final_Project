@@ -7,13 +7,16 @@
 #          for a player in the game of CLUE.  It has support for fully-simulated games as well as  #
 #          physical games (which depend upon user input for each round).                           #
 #                                                                                                  #
+# LIMITATIONS: Strategy involving room teleportation is ignored for the scope of this project.     #
+#              Additionally, we ignore the number of turns required to move between rooms having   #
+#              an effect on the frequency of guessing.  Improvements welcome as pull-requests.     #
+#                                                                                                  #
 ####################################################################################################
 
 import random
 import math
 import copy
 from scipy.optimize import linprog
-import numpy as np
 
 ####################################################################################################
 ####################################################################################################
@@ -41,9 +44,9 @@ Distances = [
     [17, 15, 20, 17, 4,  0,  17, 7,  0 ]
 ]
 
-# define the inequality constraints
+# define the inequality constraints (neg because we need to convert >= to <= for linprog)
 A_ub = [
-    [-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],  # neg because we need to convert >= to <= for linprog
+    [-1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],  
     [0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0,],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1]
 ]
@@ -94,11 +97,12 @@ class Player:
         # Player Hand (List of Cards)
         self.Hand = Hand
 
+        self.solution = None
+
         # Coefficient Matricies for Linear Programming
         self.C_Rooms =   [0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.C_Weapons = [0, 0, 0, 0, 0, 0]
         self.C_People =  [0, 0, 0, 0, 0, 0]
-
 
         # set cards in hand to correspond with coeff matrix of 100
         for card in self.Hand:
@@ -180,8 +184,6 @@ class Player:
 # SUGGEST THE NEXT BEST GUESS                                                                      #
 #                                                                                                  #
     def make_guess(self):
-        # TODO: Where more linprogging happens
-
         coefficients = self.C_Rooms + self.C_Weapons + self.C_People
 
         result = linprog(c=coefficients, A_ub=A_ub, b_ub=b_ub, method='highs')
@@ -220,58 +222,55 @@ class Player:
             self.State[weapon_idx][player] = [0,[]]
             self.State[room_idx][player] = [0,[]]
             for j in range(len(Cards)):
-                for tup_list in self.State[player][j][1]:
-                    if self.State[player][j][0] == 0 or len(tup_list) == 0: continue
-                    if person_idx in tup_list: tup_list.pop(person_idx)
-                    if weapon_idx in tup_list: tup_list.pop(weapon_idx)
-                    if room_idx in tup_list: tup_list.pop(room_idx)
-                    if (len(tup_list) == 0): self.State[player][j] = [0,[0]]
+                for tup_list in self.State[j][player][1]:
+                    if self.State[j][player][0] == 0 or len(tup_list) == 0: continue
+                    if person_idx in tup_list: tup_list.pop(tup_list.index(person_idx))
+                    if weapon_idx in tup_list: tup_list.pop(tup_list.index(weapon_idx))
+                    if room_idx in tup_list: tup_list.pop(tup_list.index(room_idx))
+                    if (len(tup_list) == 0): self.State[j][player] = [0,[0]]
 
         # Update answerer cards
-        # TODO: Process Coefficient Matricies
-
-
-        # TODO: This (specifically the '.5' part)
-        # TODO: Correctly update the probabilities based on whether the other cards are known.
         if answerer == self.player_num - 1: return
         elif answerer == -1:
-            # TODO: Case where no one had the cards
-            print('hi')
+            if (self.State[person_idx][self.player_num][0] == 0 and self.State[weapon_idx][self.player_num][0] == 0 and self.State[room_idx][self.player_num][0] == 0):
+                self.solution = person, weapon, room
             return
 
         self.State[person_idx][answerer][1].append([weapon_idx, room_idx]) 
         self.State[weapon_idx][answerer][1].append([person_idx, room_idx])
         self.State[room_idx][answerer][1].append([weapon_idx, person_idx])
-        # TODO: some linear algebra-ey conditional probablity calculation
         return
 
 #                                                                                                  #
 # MAKE AN ACCUSATION IF ABLE                                                                       #
 #                                                                                                  #
     def accuse(self):
-        person = weapon = room = None
-        if (self.len_known_people() == len(People) - 1 and
-                self.len_known_weapons() == len(Weapons) - 1 and
-                self.len_known_rooms() == len(Rooms) - 1):
-            # Make the accusation based on the known cards
-            # If no players have the card, than the card must be in the answer set
-            for i in range(len(People)):
-                for j in range(NUM_PLAYERS):
-                    if self.State[i][j][0] == 1: break 
-                    if j == NUM_PLAYERS - 1: person = People[i]
-            for i in range(len(People), len(People) + len(Weapons)):
-                for j in range(NUM_PLAYERS):
-                    if self.State[i][j][0] == 1: break 
-                    if j == NUM_PLAYERS - 1: weapon = Weapons[i]
-            for i in range(len(People) + len(Weapons), len(People) + len(Weapons) + len(Rooms)):
-                for j in range(NUM_PLAYERS):
-                    if self.State[i][j][0] == 1: break 
-                    if j == NUM_PLAYERS - 1: room = Rooms[i]
-            assert(person == Answer[0] and weapon == Answer[1] and room == Answer[2]), 'Accusation Incorrect!'
-            print('Accusation: ' + str(person) + ', ' + str(weapon) + ', ' + str(room))
-            return True
-        else:
-            return False
+        if self.solution != None:
+            return self.solution
+    # More advanced solution logic which does not depend upon a previously correct guess
+    #   person = weapon = room = None
+    #   if (self.len_known_people() == len(People) - 1 and
+    #           self.len_known_weapons() == len(Weapons) - 1 and
+    #           self.len_known_rooms() == len(Rooms) - 1):
+    #       # Make the accusation based on the known cards
+    #       # If no players have the card, than the card must be in the answer set
+    #       for i in range(len(People)):
+    #           for j in range(NUM_PLAYERS):
+    #               if self.State[i][j][0] == 1: break 
+    #               if j == NUM_PLAYERS - 1: person = People[i]
+    #       for i in range(len(People), len(People) + len(Weapons)):
+    #           for j in range(NUM_PLAYERS):
+    #               if self.State[i][j][0] == 1: break 
+    #               if j == NUM_PLAYERS - 1: weapon = Weapons[i]
+    #       for i in range(len(People) + len(Weapons), len(People) + len(Weapons) + len(Rooms)):
+    #           for j in range(NUM_PLAYERS):
+    #               if self.State[i][j][0] == 1: break 
+    #               if j == NUM_PLAYERS - 1: room = Rooms[i]
+    #       assert(person == Answer[0] and weapon == Answer[1] and room == Answer[2]), 'Accusation Incorrect!'
+    #       print('Accusation: ' + str(person) + ', ' + str(weapon) + ', ' + str(room))
+    #       return True
+    #   else:
+    #       return False
 
 #                                                                                                  #
 # DETERMINE WHICH CARD (IF ANY) TO SHOW                                                            #
@@ -300,7 +299,7 @@ class Player:
             else:
                 response = MatchingCards[random.randrange(len(MatchingCards))]
 
-        if response != None: print('Showing Card: ' + response)
+        if response != None: print('Player ' + str(self.player_num) + ' Showing Card: ' + response)
         return response
 
 #                                                                                                  #
@@ -331,7 +330,6 @@ class Player:
                 update_value = 100 - (1 / len(non_set_indices)) * 100
                 for index in non_set_indices:
                     coefficients[index] = update_value
-        
         
         card_idx = Cards.index(card)
         self.State[card_idx][self.player_num] = [1,[]]
@@ -386,9 +384,10 @@ def createHands():
         tempRooms = copy.deepcopy(Rooms);
         tempWeapons = copy.deepcopy(Weapons);
         tempPeople = copy.deepcopy(People);
-        Answer = (tempRooms.pop(random.randrange(len(tempRooms)))
-            + tempWeapons.pop(random.randrange(len(tempWeapons))) 
-            + tempPeople.pop(random.randrange(len(tempPeople))))
+        Answer = ['','',''] 
+        Answer[0] = tempPeople.pop(random.randrange(len(tempPeople)))
+        Answer[1] = tempWeapons.pop(random.randrange(len(tempWeapons))) 
+        Answer[2] = tempRooms.pop(random.randrange(len(tempRooms)))
         remainingCards = tempRooms + tempWeapons + tempPeople
 
         # Check if the player is near enough to the dealer to receive an extra card
@@ -455,8 +454,10 @@ for i in range(NUM_PLAYERS):
     Players.append(Player(Hands[i], i, PLAYER_STRATEGIES[i]))
 
 player = DEALER
+guesses = 0
 
 while(True):
+    guesses += 1
     if (SIMULATED):
         # Get next player
         player = (int(player) + 1) % NUM_PLAYERS
@@ -480,14 +481,23 @@ while(True):
 
         # Players process the guess
         for i in range(NUM_PLAYERS):
-            print('Guesser: ' + str(player) + '\nAnswerer: ' + str(answerer))
+            # print('Guesser: ' + str(player) + '\nAnswerer: ' + str(answerer))
             Players[i].process_guess(player, answerer, person, weapon, room)
 
         # Guesser processes the received card
         if card != None: Players[player].receive_guess(card)
 
         # Player makes an accusation if able
-        if Players[player].accuse(): break
+        solution = Players[player].accuse()
+        if solution != None: 
+            print('\n\nGame Complete! Accusation:', solution)
+            print('Answer:', Answer[0], Answer[1], Answer[2])
+            break
+
+        # if player == PLAYER:
+            # for i in range(len(Cards)):
+            #     print(Cards[i] + ': ' + str(Players[player].State[i]))
+            # input()
     else:
         # Get user input for the round and optionally suggest a guess
         recommend = input('Recommend a Guess? (y/n): ')
@@ -496,5 +506,5 @@ while(True):
         Players[PLAYER].process_guess(person, weapon, room)
 
 # Game complete
-print("Player", player, "won the game!")
+print("Player", player, "won the game after", guesses, "guesses!")
 
