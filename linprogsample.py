@@ -44,3 +44,5 @@ print(room, weapon, person) # remove later
 
 # return room, weapon, person
 
+Rooms = ['Ball', 'Billiard', 'Conservatory', 'Dining', 'Hall', 'Kitchen', 'Lounge', 'Library', 'Study']
+C = [100, 75, 50, 100, 100, 100, 100, 100, 100]  

@@ -1,0 +1,135 @@
+Turn of Player 2
+Guess: White, Knife, Ball
+Player 3 Showing Card: Ball
+
+Turn of Player 3
+Guess: White, Knife, Billiard
+Player 0 Showing Card: White
+
+Turn of Player 0
+Guess: Green, Pistol, Ball
+Player 1 Showing Card: Pistol
+
+Turn of Player 1
+Guess: White, Knife, Ball
+Player 3 Showing Card: Ball
+
+Turn of Player 2
+Guess: White, Knife, Billiard
+Player 0 Showing Card: Knife
+
+Turn of Player 3
+Guess: Scarlet, Knife, Billiard
+Player 0 Showing Card: Knife
+
+Turn of Player 0
+Guess: Green, Candlestick, Ball
+Player 1 Showing Card: Candlestick
+
+Turn of Player 1
+Guess: White, Knife, Conservatory
+Player 2 Showing Card: Conservatory
+
+Turn of Player 2
+Guess: White, Pistol, Billiard
+Player 0 Showing Card: White
+
+Turn of Player 3
+Guess: Scarlet, Pistol, Billiard
+Player 1 Showing Card: Billiard
+
+Turn of Player 0
+Guess: Green, Wrench, Ball
+Player 2 Showing Card: Wrench
+
+Turn of Player 1
+Guess: White, Knife, Dining
+Player 0 Showing Card: White
+
+Turn of Player 2
+Guess: Green, Pistol, Billiard
+Player 3 Showing Card: Green
+
+Turn of Player 3
+Guess: Scarlet, Pistol, Conservatory
+Player 1 Showing Card: Pistol
+
+Turn of Player 0
+Guess: Green, Lead_Pipe, Ball
+Player 3 Showing Card: Green
+
+Turn of Player 1
+Guess: Green, Knife, Dining
+Player 3 Showing Card: Green
+
+Turn of Player 2
+Guess: Mustard, Pistol, Billiard
+Player 1 Showing Card: Billiard
+
+Turn of Player 3
+Guess: Scarlet, Rope, Conservatory
+Player 0 Showing Card: Rope
+
+Turn of Player 0
+Guess: Scarlet, Lead_Pipe, Ball
+Player 2 Showing Card: Scarlet
+
+Turn of Player 1
+Guess: Scarlet, Knife, Dining
+Player 2 Showing Card: Scarlet
+
+Turn of Player 2
+Guess: Mustard, Pistol, Dining
+Player 1 Showing Card: Pistol
+
+Turn of Player 3
+Guess: Scarlet, Candlestick, Conservatory
+Player 1 Showing Card: Candlestick
+
+Turn of Player 0
+Guess: Mustard, Lead_Pipe, Ball
+Player 3 Showing Card: Ball
+
+Turn of Player 1
+Guess: Mustard, Knife, Dining
+Player 0 Showing Card: Knife
+
+Turn of Player 2
+Guess: Mustard, Rope, Dining
+Player 0 Showing Card: Rope
+
+Turn of Player 3
+Guess: Scarlet, Wrench, Conservatory
+Player 2 Showing Card: Scarlet
+
+Turn of Player 0
+Guess: Mustard, Lead_Pipe, Billiard
+Player 1 Showing Card: Billiard
+
+Turn of Player 1
+Guess: Mustard, Rope, Dining
+Player 0 Showing Card: Rope
+
+Turn of Player 2
+Guess: Mustard, Candlestick, Dining
+Player 1 Showing Card: Candlestick
+
+Turn of Player 3
+Guess: Mustard, Wrench, Conservatory
+Player 2 Showing Card: Wrench
+
+Turn of Player 0
+Guess: Mustard, Lead_Pipe, Conservatory
+Player 2 Showing Card: Conservatory
+
+Turn of Player 1
+Guess: Mustard, Wrench, Dining
+Player 2 Showing Card: Wrench
+
+Turn of Player 2
+Guess: Mustard, Lead_Pipe, Dining
+
+
+Game Complete! Accusation: ('Mustard', 'Lead_Pipe', 'Dining')
+Answer: Mustard Lead_Pipe Dining
+Player 2 won the game after 33 guesses!
