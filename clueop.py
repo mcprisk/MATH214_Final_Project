@@ -311,17 +311,14 @@ class Player:
         if card in People:
             index = People.index(card)
             self.C_People[index] = 100
-            print("People: " + str(self.C_People))
 
         elif card in Weapons:
             index = Weapons.index(card)
             self.C_Weapons[index] = 100
-            print("W " + str(self.C_Weapons))
 
         elif card in Rooms:
             index = Rooms.index(card)
             self.C_Rooms[index] = 100
-            print("R " + str(self.C_Rooms))
 
         # for cards that arent in hand, adjust their probability accordingly
         for coefficients in (self.C_People, self.C_Weapons, self.C_Rooms):
